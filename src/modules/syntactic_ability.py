@@ -103,7 +103,7 @@ class SyntacticAbilityEvaluation:
 
         # replacing the target token with the mask token in the sentences
         masked_inputs = correct_inputs[valid_rows].to(self.device)       # shape: [num_valid_rows, sequence_length]
-        masked_inputs[:, target_indices[:, 1]] = self.tokenizer.mask_token_id
+        masked_inputs[torch.arange(masked_inputs.size(0)), target_indices[:, 1]] = self.tokenizer.mask_token_id
 
         return masked_inputs, targets
     
