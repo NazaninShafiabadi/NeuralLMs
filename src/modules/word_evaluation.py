@@ -6,7 +6,7 @@ certain tokens.
 
 Sample usage:
 
-python3 word_evaluation_clean.py \
+python3 src/modules/word_evaluation.py \
 --tokenizer="google/multiberts-seed_0" \
 --wordbank_file="data/wikitext/wikitext_wordbank.tsv" \
 --examples_file="data/wikitext/test_tokenized.txt" \
@@ -14,7 +14,7 @@ python3 word_evaluation_clean.py \
 --batch_size=128 \
 --output_file="results/bert_surprisals.txt" \
 --model="google/multiberts-seed_0" --model_type="bert" \
---save_samples="data/wikitext/bidirectional_samples.pickle"\
+--save_samples="data/wikitext/bidirectional_samples.pickle" \
 --save_model_outputs="results/model_outputs.pickle"
 """
 
