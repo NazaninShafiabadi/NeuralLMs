@@ -65,27 +65,23 @@ def create_parser():
 
 def save_model_outputs(attentions, hidden_states, checkpoint, file_path):
     """
-    Save the attention weights and hidden states to a pickle file.
+    Saves the attention weights and hidden states to a pickle file.
 
     - attentions: (list of torch.Tensor) The attention weights from the model.
     - hidden_states: (list of torch.Tensor) The hidden states from the model.
     - checkpoint: (str) The name of the checkpoint.
     - file_path: (str) The path to the pickle file.
     """
-    # Load existing data if file exists
     try:
         with open(file_path, 'rb') as f:
             data = pickle.load(f)
     except FileNotFoundError:
         data = {}
 
-    # Add new attentions and hidden states
     data[checkpoint] = {
         'attentions': [attention.cpu().numpy() for attention in attentions],
         'hidden_states': [hidden_state.cpu().numpy() for hidden_state in hidden_states]
     }
-
-    # Save data back to pickle file
     with open(file_path, 'wb') as f:
         pickle.dump(data, f)
 
