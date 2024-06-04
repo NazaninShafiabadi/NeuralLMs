@@ -11,7 +11,7 @@ python3 src/modules/word_evaluation.py \
 --wordbank_file="data/wikitext/wikitext_wordbank.tsv" \
 --examples_file="data/wikitext/test_tokenized.txt" \
 --max_samples=512 \
---batch_size=128 \
+--batch_size=32 \
 --output_file="results/bert_surprisals.txt" \
 --model="google/multiberts-seed_0" --model_type="bert" \
 --save_samples="data/wikitext/bidirectional_samples.pickle" \
@@ -63,12 +63,13 @@ def create_parser():
     return parser
 
 
-def save_model_outputs(attentions, hidden_states, checkpoint, file_path):
+def save_model_outputs(model_outputs, checkpoint, file_path):
     """
     Saves the attention weights and hidden states to a pickle file.
 
-    - attentions: (list of torch.Tensor) The attention weights from the model.
-    - hidden_states: (list of torch.Tensor) The hidden states from the model.
+    - model_outputs: (Dict) Dictionary containing input_ids, attentions and hidden states 
+    # - attentions: (list of torch.Tensor) The attention weights from the model.
+    # - hidden_states: (list of torch.Tensor) The hidden states from the model.
     - checkpoint: (str) The name of the checkpoint.
     - file_path: (str) The path to the pickle file.
     """
@@ -78,10 +79,7 @@ def save_model_outputs(attentions, hidden_states, checkpoint, file_path):
     except FileNotFoundError:
         data = {}
 
-    data[checkpoint] = {
-        'attentions': [attention.cpu().numpy() for attention in attentions],
-        'hidden_states': [hidden_state.cpu().numpy() for hidden_state in hidden_states]
-    }
+    data[checkpoint] = model_outputs
     with open(file_path, 'wb') as f:
         pickle.dump(data, f)
 
@@ -222,8 +220,14 @@ def run_model(model, examples, batch_size, tokenizer):
                             output_attentions=True, 
                             output_hidden_states=True, 
                             return_dict=True)
-            attentions = outputs.attentions
-            hidden_states = outputs.hidden_states
+            print(len(batches[batch_i]))
+            print(len(outputs.attentions))
+            print(len(outputs.hidden_states))
+            model_outputs = {
+                'token_ids': batches[batch_i],
+                'attentions': [attention.cpu().numpy() for attention in outputs.attentions],
+                'hidden_states': [hidden_state.cpu().numpy() for hidden_state in outputs.hidden_states]
+            }
             logits = outputs['logits'].detach()
             # Now, logits correspond to labels.
             target_indices = inputs["labels"] == tokenizer.mask_token_id
@@ -241,7 +245,7 @@ def run_model(model, examples, batch_size, tokenizer):
         print("WARNING: length of logits {0} does not equal number of examples {1}!!".format(
             all_eval_logits.shape[0], len(examples)
         ))
-    return all_eval_logits, attentions, hidden_states
+    return all_eval_logits, model_outputs
 
 
 # Run token evaluations for a single model.
@@ -259,7 +263,7 @@ def evaluate_tokens(model, token_data, tokenizer, outfile,
             print("Not enough examples; skipped.")
             continue
         # Get logits with shape: num_examples x vocab_size.
-        logits, attentions, hidden_states = run_model(model, sample_sents, batch_size, tokenizer)
+        logits, model_outputs = run_model(model, sample_sents, batch_size, tokenizer)
         print("Finished inference.")
         probs = torch.nn.Softmax(dim=-1)(logits)
         # Get median rank of correct token.
@@ -285,7 +289,7 @@ def evaluate_tokens(model, token_data, tokenizer, outfile,
             curr_steps, token, median_rank, mean_surprisal, std_surprisal,
             accuracy, num_examples))
         if args.save_model_outputs != "":
-            save_model_outputs(attentions, hidden_states, curr_steps, args.save_model_outputs)
+            save_model_outputs(model_outputs, curr_steps, args.save_model_outputs)
     return
 
 
