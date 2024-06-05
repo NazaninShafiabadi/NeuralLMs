@@ -9,7 +9,7 @@ Sample usage:
 python3 src/modules/word_evaluation.py \
 --tokenizer="google/multiberts-seed_0" \
 --wordbank_file="data/wikitext/wikitext_wordbank.tsv" \
---examples_file="data/wikitext/test_tokenized.txt" \
+--examples_file="data/wikitext/toy_tokenized.txt" \
 --max_samples=512 \
 --batch_size=32 \
 --output_file="results/bert_surprisals.txt" \
