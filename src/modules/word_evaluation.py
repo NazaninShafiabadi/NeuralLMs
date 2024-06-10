@@ -17,7 +17,7 @@ python3 src/modules/word_evaluation.py \
 --save_samples="data/wikitext/bidirectional_samples.pickle" \
 --save_model_outputs="results/model_outputs.pickle"
 """
-
+import gzip
 import os
 import sys
 import pandas as pd
@@ -68,19 +68,31 @@ def save_model_outputs(model_outputs, checkpoint, file_path):
     Saves the attention weights and hidden states to a pickle file.
 
     - model_outputs: (Dict) Dictionary containing input_ids, attentions and hidden states 
-    # - attentions: (list of torch.Tensor) The attention weights from the model.
-    # - hidden_states: (list of torch.Tensor) The hidden states from the model.
     - checkpoint: (str) The name of the checkpoint.
     - file_path: (str) The path to the pickle file.
     """
     try:
-        with open(file_path, 'rb') as f:
+        with gzip.open(file_path, 'rb') as f:
             data = pickle.load(f)
     except FileNotFoundError:
-        data = {}
+        data = []
 
-    data[checkpoint] = model_outputs
-    with open(file_path, 'wb') as f:
+    sentences = model_outputs['sentences']
+    attentions = model_outputs['attentions']
+    hidden_states = model_outputs['hidden_states']
+
+    for i in range(len(sentences)):
+        row = {
+            'step': checkpoint,
+            'sentence': sentences[i],
+            '1st_layer_attentions': attentions[0][i],
+            'last_layer_attentions': attentions[-1][i],
+            '1st_layer_hidden_states': hidden_states[0][i],
+            'last_layer_hidden_states': hidden_states[-1][i]
+        }
+        data.append(row)
+
+    with gzip.open(file_path, 'wb') as f:
         pickle.dump(data, f)
 
 
@@ -224,7 +236,7 @@ def run_model(model, examples, batch_size, tokenizer):
             print(len(outputs.attentions))
             print(len(outputs.hidden_states))
             model_outputs = {
-                'token_ids': batches[batch_i],
+                'sentences': tokenizer.batch_decode(batches[batch_i]),
                 'attentions': [attention.cpu().numpy() for attention in outputs.attentions],
                 'hidden_states': [hidden_state.cpu().numpy() for hidden_state in outputs.hidden_states]
             }
