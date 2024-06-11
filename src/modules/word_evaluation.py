@@ -11,7 +11,7 @@ python3 src/modules/word_evaluation.py \
 --wordbank_file="data/wikitext/wikitext_wordbank.tsv" \
 --examples_file="data/wikitext/wikitext103_tokenized.txt" \
 --max_samples=512 \
---batch_size=64 \
+--batch_size=256 \
 --output_file="results/bert_surprisals.txt" \
 --model="google/multiberts-seed_0" --model_type="bert" \
 --save_samples="data/wikitext/sample_sents.pickle" \
@@ -51,7 +51,7 @@ def create_parser():
     # space-separated list of integer token ids.
     parser.add_argument('--examples_file', default="")
     # The minimum number of sample sentences to evaluate a token.
-    parser.add_argument('--min_samples', type=int, default=8)
+    parser.add_argument('--min_samples', type=int, default=1)
     parser.add_argument('--max_samples', type=int, default=512)
     # The minimum sequence length to evaluate a token in a sentence.
     # For unidirectional models, this only counts context before the target token.
@@ -364,8 +364,7 @@ def main(args):
     outfile.write("Steps\tToken\tMedianRank\tMeanSurprisal\tStdevSurprisal\tAccuracy\tNumExamples\n")
 
     # Get checkpoints & Run evaluation.
-    # steps = list(range(0, 200_000, 20_000)) + list(range(200_000, 2_100_000, 100_000))
-    steps = [0]
+    steps = list(range(0, 200_000, 20_000)) + list(range(200_000, 2_100_000, 100_000))
     for step in steps:
         checkpoint = args.model + f"-step_{step//1000}k"
         model = load_single_model(checkpoint, config, tokenizer, args.model_type)
