@@ -9,13 +9,13 @@ Sample usage:
 python3 src/modules/word_evaluation.py \
 --tokenizer="google/multiberts-seed_0" \
 --wordbank_file="data/wikitext/wikitext_wordbank.tsv" \
---examples_file="data/wikitext/toy_tokenized.txt" \
+--examples_file="data/wikitext/wikitext103_tokenized.txt" \
 --max_samples=512 \
---batch_size=32 \
+--batch_size=64 \
 --output_file="results/bert_surprisals.txt" \
 --model="google/multiberts-seed_0" --model_type="bert" \
---save_samples="data/wikitext/bidirectional_samples.pickle" \
---save_model_outputs="results/model_outputs.pickle"
+--save_samples="data/wikitext/sample_sents.pickle" \
+--save_model_outputs="results/att_hs.pickle.gz"
 """
 import gzip
 import os
@@ -32,6 +32,8 @@ from transformers import (
     AutoConfig,
     AutoTokenizer
 )
+
+# os.environ['NCCL_DEBUG'] = 'INFO'
 
 
 def create_parser():
@@ -77,20 +79,21 @@ def save_model_outputs(model_outputs, checkpoint, file_path):
     except FileNotFoundError:
         data = []
 
-    sentences = model_outputs['sentences']
-    attentions = model_outputs['attentions']
-    hidden_states = model_outputs['hidden_states']
+    for batch_i in model_outputs:
+        sequences = batch_i['sequences']
+        attentions = batch_i['attentions']
+        hidden_states = batch_i['hidden_states']
 
-    for i in range(len(sentences)):
-        row = {
-            'step': checkpoint,
-            'sentence': sentences[i],
-            '1st_layer_attentions': attentions[0][i],
-            'last_layer_attentions': attentions[-1][i],
-            '1st_layer_hidden_states': hidden_states[0][i],
-            'last_layer_hidden_states': hidden_states[-1][i]
-        }
-        data.append(row)
+        for i in range(len(sequences)):
+            row = {
+                'step': checkpoint,
+                'sequence': sequences[i],
+                '1st_layer_attentions': attentions[0][i],
+                'last_layer_attentions': attentions[-1][i],
+                '1st_layer_hidden_states': hidden_states[0][i],
+                'last_layer_hidden_states': hidden_states[-1][i]
+            }
+            data.append(row)
 
     with gzip.open(file_path, 'wb') as f:
         pickle.dump(data, f)
@@ -223,21 +226,22 @@ def run_model(model, examples, batch_size, tokenizer):
     model.eval()
     with torch.no_grad():
         eval_logits = []
+        model_outputs = []
         for batch_i in range(len(batches)):
             inputs = prepare_tokenized_examples(batches[batch_i], tokenizer)
             # Run model.
+            output_attns_and_hs = (args.save_model_outputs != "")
             outputs = model(input_ids=inputs["input_ids"],
                             attention_mask=inputs["attention_mask"],
                             labels=inputs["labels"],
-                            output_attentions=True, 
-                            output_hidden_states=True, 
+                            output_attentions=output_attns_and_hs, 
+                            output_hidden_states=output_attns_and_hs, 
                             return_dict=True)
-            print(len(batches[batch_i]))
-            print(len(outputs.attentions))
-            print(len(outputs.hidden_states))
-            model_outputs = {
-                'sentences': tokenizer.batch_decode(batches[batch_i]),
+            batch_outputs = {
+                'sequences': tokenizer.batch_decode(batches[batch_i]),
+                 # List of 12 attention matrices with shape (batch_size, n_heads, seq_len, seq_len)
                 'attentions': [attention.cpu().numpy() for attention in outputs.attentions],
+                 # List of 13 hidden_state matrices with shape (batch_size, seq_len, hidden_size)
                 'hidden_states': [hidden_state.cpu().numpy() for hidden_state in outputs.hidden_states]
             }
             logits = outputs['logits'].detach()
@@ -248,6 +252,7 @@ def run_model(model, examples, batch_size, tokenizer):
             # Output shape: n_masks x vocab_size. n_masks should equal batch_size.
             mask_logits = logits[target_indices, :]
             eval_logits.append(mask_logits.detach().cpu()) # Send to CPU so not all need to be held on GPU.
+            model_outputs.append(batch_outputs)
     # Logits output shape: num_examples x vocab_size.
     all_eval_logits = torch.cat(eval_logits, dim=0)
     if all_eval_logits.shape[0] != len(examples):
@@ -262,13 +267,13 @@ def run_model(model, examples, batch_size, tokenizer):
 
 # Run token evaluations for a single model.
 def evaluate_tokens(model, token_data, tokenizer, outfile,
-                    curr_steps, batch_size, min_samples):
+                    curr_step, batch_size, min_samples):
     token_count = 0
     for token, token_id, sample_sents in token_data:
         print("\nEvaluation token: {}".format(token))
         token_count += 1
         print("{0} / {1} tokens".format(token_count, len(token_data)))
-        print("CHECKPOINT STEP: {}".format(curr_steps))
+        print("CHECKPOINT STEP: {}".format(curr_step))
         num_examples = len(sample_sents)
         print("Num examples: {}".format(num_examples))
         if num_examples < min_samples:
@@ -298,10 +303,10 @@ def evaluate_tokens(model, token_data, tokenizer, outfile,
         print("Stdev surprisal: {}".format(std_surprisal))
         print("Accuracy: {}".format(accuracy))
         outfile.write("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\n".format(
-            curr_steps, token, median_rank, mean_surprisal, std_surprisal,
+            curr_step, token, median_rank, mean_surprisal, std_surprisal,
             accuracy, num_examples))
         if args.save_model_outputs != "":
-            save_model_outputs(model_outputs, curr_steps, args.save_model_outputs)
+            save_model_outputs(model_outputs, curr_step, args.save_model_outputs)
     return
 
 
@@ -318,9 +323,10 @@ def load_single_model(single_model_dir, config, tokenizer, model_type='bert'):
 
     # Load onto GPU.
     if torch.cuda.is_available():
+        print("CUDA is available.")
         model = model.cuda()
-    if torch.cuda.device_count() > 1:
-        model = torch.nn.DataParallel(model)
+    # if torch.cuda.device_count() > 1:
+    #     model = torch.nn.DataParallel(model)
     return model
 
 
@@ -358,7 +364,8 @@ def main(args):
     outfile.write("Steps\tToken\tMedianRank\tMeanSurprisal\tStdevSurprisal\tAccuracy\tNumExamples\n")
 
     # Get checkpoints & Run evaluation.
-    steps = list(range(0, 200_000, 20_000)) + list(range(200_000, 2_100_000, 100_000))
+    # steps = list(range(0, 200_000, 20_000)) + list(range(200_000, 2_100_000, 100_000))
+    steps = [0]
     for step in steps:
         checkpoint = args.model + f"-step_{step//1000}k"
         model = load_single_model(checkpoint, config, tokenizer, args.model_type)
