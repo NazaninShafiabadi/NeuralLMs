@@ -230,20 +230,22 @@ def run_model(model, examples, batch_size, tokenizer):
         for batch_i in range(len(batches)):
             inputs = prepare_tokenized_examples(batches[batch_i], tokenizer)
             # Run model.
-            output_attns_and_hs = (args.save_model_outputs != "")
+            output_attns_and_hs = args.save_model_outputs != ""
             outputs = model(input_ids=inputs["input_ids"],
                             attention_mask=inputs["attention_mask"],
                             labels=inputs["labels"],
                             output_attentions=output_attns_and_hs, 
                             output_hidden_states=output_attns_and_hs, 
                             return_dict=True)
-            batch_outputs = {
-                'sequences': tokenizer.batch_decode(batches[batch_i]),
-                 # List of 12 attention matrices with shape (batch_size, n_heads, seq_len, seq_len)
-                'attentions': [attention.cpu().numpy() for attention in outputs.attentions],
-                 # List of 13 hidden_state matrices with shape (batch_size, seq_len, hidden_size)
-                'hidden_states': [hidden_state.cpu().numpy() for hidden_state in outputs.hidden_states]
-            }
+            if output_attns_and_hs:
+                batch_outputs = {
+                    'sequences': tokenizer.batch_decode(batches[batch_i]),
+                    # List of 12 attention matrices with shape (batch_size, n_heads, seq_len, seq_len)
+                    'attentions': [attention.cpu().numpy() for attention in outputs.attentions],
+                    # List of 13 hidden_state matrices with shape (batch_size, seq_len, hidden_size)
+                    'hidden_states': [hidden_state.cpu().numpy() for hidden_state in outputs.hidden_states]
+                }
+                model_outputs.append(batch_outputs)
             logits = outputs['logits'].detach()
             # Now, logits correspond to labels.
             target_indices = inputs["labels"] == tokenizer.mask_token_id
@@ -252,7 +254,6 @@ def run_model(model, examples, batch_size, tokenizer):
             # Output shape: n_masks x vocab_size. n_masks should equal batch_size.
             mask_logits = logits[target_indices, :]
             eval_logits.append(mask_logits.detach().cpu()) # Send to CPU so not all need to be held on GPU.
-            model_outputs.append(batch_outputs)
     # Logits output shape: num_examples x vocab_size.
     all_eval_logits = torch.cat(eval_logits, dim=0)
     if all_eval_logits.shape[0] != len(examples):

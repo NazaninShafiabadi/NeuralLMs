@@ -1,0 +1,55 @@
+/mnt2/wisniewski/nazanin/NeuralLMs/.venv/lib/python3.10/site-packages/huggingface_hub/file_download.py:1132: FutureWarning: `resume_download` is deprecated and will be removed in version 1.0.0. Downloads always resume when possible. If you want to force a new download, use `force_download=True`.
+  warnings.warn(
+/mnt2/wisniewski/nazanin/NeuralLMs/.venv/lib/python3.10/site-packages/torch/cuda/__init__.py:619: UserWarning: Can't initialize NVML
+  warnings.warn("Can't initialize NVML")
+BertSdpaSelfAttention is used but `torch.nn.functional.scaled_dot_product_attention` does not support non-absolute `position_embedding_type` or `output_attentions=True` or `head_mask`. Falling back to the manual attention implementation, but specifying the manual implementation will be required from Transformers version v5.0.0 onwards. This warning can be removed using the argument `attn_implementation="eager"` when loading the model.
+/mnt2/wisniewski/nazanin/NeuralLMs/src/modules/word_evaluation.py:299: UserWarning: std(): degrees of freedom is <= 0. Correction should be strictly less than the reduction factor (input numel divided by output numel). (Triggered internally at ../aten/src/ATen/native/ReduceOps.cpp:1807.)
+  std_surprisal = torch.std(surprisals).item()
+Traceback (most recent call last):
+  File "/mnt2/wisniewski/nazanin/NeuralLMs/src/modules/word_evaluation.py", line 380, in <module>
+    main(args)
+  File "/mnt2/wisniewski/nazanin/NeuralLMs/src/modules/word_evaluation.py", line 371, in main
+    evaluate_tokens(model, token_data, tokenizer, outfile,
+  File "/mnt2/wisniewski/nazanin/NeuralLMs/src/modules/word_evaluation.py", line 283, in evaluate_tokens
+    logits, model_outputs = run_model(model, sample_sents, batch_size, tokenizer)
+  File "/mnt2/wisniewski/nazanin/NeuralLMs/src/modules/word_evaluation.py", line 234, in run_model
+    outputs = model(input_ids=inputs["input_ids"],
+  File "/mnt2/wisniewski/nazanin/NeuralLMs/.venv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1532, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/mnt2/wisniewski/nazanin/NeuralLMs/.venv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1541, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/mnt2/wisniewski/nazanin/NeuralLMs/.venv/lib/python3.10/site-packages/transformers/models/bert/modeling_bert.py", line 1487, in forward
+    outputs = self.bert(
+  File "/mnt2/wisniewski/nazanin/NeuralLMs/.venv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1532, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/mnt2/wisniewski/nazanin/NeuralLMs/.venv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1541, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/mnt2/wisniewski/nazanin/NeuralLMs/.venv/lib/python3.10/site-packages/transformers/models/bert/modeling_bert.py", line 1137, in forward
+    encoder_outputs = self.encoder(
+  File "/mnt2/wisniewski/nazanin/NeuralLMs/.venv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1532, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/mnt2/wisniewski/nazanin/NeuralLMs/.venv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1541, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/mnt2/wisniewski/nazanin/NeuralLMs/.venv/lib/python3.10/site-packages/transformers/models/bert/modeling_bert.py", line 690, in forward
+    layer_outputs = layer_module(
+  File "/mnt2/wisniewski/nazanin/NeuralLMs/.venv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1532, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/mnt2/wisniewski/nazanin/NeuralLMs/.venv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1541, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/mnt2/wisniewski/nazanin/NeuralLMs/.venv/lib/python3.10/site-packages/transformers/models/bert/modeling_bert.py", line 580, in forward
+    self_attention_outputs = self.attention(
+  File "/mnt2/wisniewski/nazanin/NeuralLMs/.venv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1532, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/mnt2/wisniewski/nazanin/NeuralLMs/.venv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1541, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/mnt2/wisniewski/nazanin/NeuralLMs/.venv/lib/python3.10/site-packages/transformers/models/bert/modeling_bert.py", line 510, in forward
+    self_outputs = self.self(
+  File "/mnt2/wisniewski/nazanin/NeuralLMs/.venv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1532, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/mnt2/wisniewski/nazanin/NeuralLMs/.venv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1541, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/mnt2/wisniewski/nazanin/NeuralLMs/.venv/lib/python3.10/site-packages/transformers/models/bert/modeling_bert.py", line 382, in forward
+    return super().forward(
+  File "/mnt2/wisniewski/nazanin/NeuralLMs/.venv/lib/python3.10/site-packages/transformers/models/bert/modeling_bert.py", line 327, in forward
+    attention_scores = attention_scores / math.sqrt(self.attention_head_size)
+RuntimeError: NVML_SUCCESS == DriverAPI::get()->nvmlInit_v2_() INTERNAL ASSERT FAILED at "../c10/cuda/CUDACachingAllocator.cpp":813, please report a bug to PyTorch. 
