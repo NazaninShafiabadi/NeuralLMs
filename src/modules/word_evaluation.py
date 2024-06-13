@@ -80,18 +80,22 @@ def save_model_outputs(model_outputs, checkpoint, file_path):
         data = []
 
     for batch_i in model_outputs:
+        masked_token_indices = batch_i['masked_token_indices']
         sequences = batch_i['sequences']
         attentions = batch_i['attentions']
         hidden_states = batch_i['hidden_states']
 
         for i in range(len(sequences)):
+            masked_token_idx = masked_token_indices[i]
             row = {
                 'step': checkpoint,
                 'sequence': sequences[i],
-                '1st_layer_attentions': attentions[0][i],
-                'last_layer_attentions': attentions[-1][i],
-                '1st_layer_hidden_states': hidden_states[0][i],
-                'last_layer_hidden_states': hidden_states[-1][i]
+                '1st_layer_attentions': attentions[0][i, :, masked_token_idx, :],
+                '6th_layer_attentions': attentions[5][i, :, masked_token_idx, :],
+                'last_layer_attentions': attentions[-1][i, :, masked_token_idx, :],
+                '1st_layer_hidden_states': hidden_states[0][i, masked_token_idx, :],
+                '6th_layer_hidden_states': hidden_states[6][i, masked_token_idx, :],
+                'last_layer_hidden_states': hidden_states[-1][i, masked_token_idx, :]
             }
             data.append(row)
 
@@ -239,6 +243,7 @@ def run_model(model, examples, batch_size, tokenizer):
                             return_dict=True)
             if output_attns_and_hs:
                 batch_outputs = {
+                    'masked_token_indices': (inputs["input_ids"] == tokenizer.mask_token_id).nonzero(as_tuple=True)[1].tolist(),
                     'sequences': tokenizer.batch_decode(batches[batch_i]),
                     # List of 12 attention matrices with shape (batch_size, n_heads, seq_len, seq_len)
                     'attentions': [attention.cpu().numpy() for attention in outputs.attentions],
