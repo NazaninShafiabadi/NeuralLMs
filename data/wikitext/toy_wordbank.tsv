@@ -1,3 +1,5 @@
 token	token_ids	count	POS
 constraint	27142	1	['NOUN']
+exploring	11131	1	['VERB']
+of	1997	6750	['ADP']
 the	1996	16057	['DET']
