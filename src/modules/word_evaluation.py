@@ -80,15 +80,17 @@ def save_model_outputs(model_outputs, checkpoint, file_path):
         data = []
 
     for batch_i in model_outputs:
+        masked_token_identity = batch_i['masked_token_identity']
         masked_token_indices = batch_i['masked_token_indices']
         sequences = batch_i['sequences']
-        attentions = batch_i['attentions']
-        hidden_states = batch_i['hidden_states']
+        attentions = batch_i['attentions']          # 12 tensors of shape [batch_size, n_heads, seq_len, seq_len]
+        hidden_states = batch_i['hidden_states']    # 13 tensors of shape [batch_size, seq_len, hidden_size]
 
         for i in range(len(sequences)):
             masked_token_idx = masked_token_indices[i]
             row = {
                 'step': checkpoint,
+                'masked_token_identity': masked_token_identity,
                 'sequence': sequences[i],
                 '1st_layer_attentions': attentions[0][i, :, masked_token_idx, :],
                 '6th_layer_attentions': attentions[5][i, :, masked_token_idx, :],
@@ -214,7 +216,7 @@ The tokenizer should be loaded as in the main() function.
 The model_type is bert.
 The model can be loaded using the load_single_model() function.
 """
-def run_model(model, examples, batch_size, tokenizer):
+def run_model(model, token, examples, batch_size, tokenizer):
     # Create batches.
     batches = []
     i = 0
@@ -243,6 +245,7 @@ def run_model(model, examples, batch_size, tokenizer):
                             return_dict=True)
             if output_attns_and_hs:
                 batch_outputs = {
+                    'masked_token_identity': token,
                     'masked_token_indices': (inputs["input_ids"] == tokenizer.mask_token_id).nonzero(as_tuple=True)[1].tolist(),
                     'sequences': tokenizer.batch_decode(batches[batch_i]),
                     # List of 12 attention matrices with shape (batch_size, n_heads, seq_len, seq_len)
@@ -286,8 +289,7 @@ def evaluate_tokens(model, token_data, tokenizer, outfile,
             print("Not enough examples; skipped.")
             continue
         # Get logits with shape: num_examples x vocab_size.
-        logits, model_outputs = run_model(model, sample_sents, batch_size, tokenizer)
-        print("Finished inference.")
+        logits, model_outputs = run_model(model, token, sample_sents, batch_size, tokenizer)
         probs = torch.nn.Softmax(dim=-1)(logits)
         # Get median rank of correct token.
         rankings = torch.argsort(probs, axis=-1, descending=True)
