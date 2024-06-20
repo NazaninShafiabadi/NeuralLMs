@@ -59,7 +59,9 @@ def create_parser():
     # Load token data (sample sentences for each token) from file.
     # If file does not exist, saves the token data to this file.
     parser.add_argument('--save_samples', default="")
+    # File path to save the attentions and hidden states.
     parser.add_argument('--save_model_outputs', default="")
+    parser.add_argument('--save_all_layers', type=bool, default=False)
     # Whether to include token inflections (all, only, or none).
     parser.add_argument('--inflections', default="none")
     return parser
@@ -92,12 +94,12 @@ def save_model_outputs(model_outputs, checkpoint, file_path):
                 'step': checkpoint,
                 'masked_token_identity': masked_token_identity,
                 'sequence': sequences[i],
-                '1st_layer_attentions': attentions[0][i, :, masked_token_idx, :],
-                '6th_layer_attentions': attentions[5][i, :, masked_token_idx, :],
-                'last_layer_attentions': attentions[-1][i, :, masked_token_idx, :],
-                '1st_layer_hidden_states': hidden_states[0][i, masked_token_idx, :],
-                '6th_layer_hidden_states': hidden_states[6][i, masked_token_idx, :],
-                'last_layer_hidden_states': hidden_states[-1][i, masked_token_idx, :]
+                '1st_layer_attns': attentions[0][i, :, masked_token_idx, :],
+                '6th_layer_attns': attentions[5][i, :, masked_token_idx, :],
+                'last_layer_attns': attentions[-1][i, :, masked_token_idx, :],
+                '1st_layer_hs': hidden_states[0][i, masked_token_idx, :],
+                '6th_layer_hs': hidden_states[6][i, masked_token_idx, :],
+                'last_layer_hs': hidden_states[-1][i, masked_token_idx, :]
             }
             data.append(row)
 
