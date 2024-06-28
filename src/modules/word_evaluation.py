@@ -196,7 +196,7 @@ def get_sample_sentences(tokenizer, wordbank_file, tokenized_examples_file,
                     negative_samples.append(new_example)
     infile.close()
     # Logging.
-    for token, token_id, sample_sents in token_data:
+    for token, token_id, sample_sents, _ in token_data:
         print("{0} ({1}): {2} sentences.".format(token, token_id, len(sample_sents)))
     return token_data
 
