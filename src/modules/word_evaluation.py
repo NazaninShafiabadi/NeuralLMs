@@ -71,8 +71,13 @@ def save_model_outputs(model_outputs, checkpoint, file_path):
     """
     Saves the attention weights and hidden states to a pickle file.
 
-    - model_outputs: (Dict) Dictionary containing input_ids, attentions and hidden states 
-    - checkpoint: (str) The name of the checkpoint.
+    - model_outputs: (Dict) Dictionary containing 
+        1. the masked token identity, 
+        2. the indices of the masked tokens in each sentence of the batch, 
+        3. the decoded masked sequences (str), 
+        4. attentions
+        5. hidden states 
+    - checkpoint: (str) The training step.
     - file_path: (str) The path to the pickle file.
     """
     try:
@@ -140,7 +145,7 @@ def get_inflected_tokens(wordbank_tokens, inflections):
 def get_sample_sentences(tokenizer, wordbank_file, tokenized_examples_file,
                          max_seq_len, min_seq_len, max_samples, bidirectional=True,
                          inflections="none"):
-    # Each entry of token data is a tuple of token, token_id, masked_sample_sentences.
+    # Each entry of token data is a tuple of token, token_id, masked_sample_sentences, masked_negative_sample_sentences.
     token_data = []
     # Load words.
     df = pd.read_csv(wordbank_file, sep='\t').dropna().reset_index(drop=True)
@@ -151,7 +156,7 @@ def get_sample_sentences(tokenizer, wordbank_file, tokenized_examples_file,
     for token in wordbank_tokens:
         token_id = tokenizer.convert_tokens_to_ids(token)
         if token_id != tokenizer.unk_token_id:
-            token_data.append(tuple([token, token_id, []]))
+            token_data.append(tuple([token, token_id, [], []]))
     # Load sentences.
     print(f"Loading sentences from {tokenized_examples_file}.")
     infile = codecs.open(tokenized_examples_file, 'rb', encoding='utf-8')
@@ -166,11 +171,12 @@ def get_sample_sentences(tokenizer, wordbank_file, tokenized_examples_file,
             continue
         if len(example) > max_seq_len:
             example = example[:max_seq_len]
-        for token, token_id, sample_sents in token_data:
+        for token, token_id, sample_sents, negative_samples in token_data:
             if len(sample_sents) >= max_samples:
                 # This token already has enough sentences.
                 continue
             token_indices = [index for index, curr_id in enumerate(example) if curr_id == token_id]
+            other_indices = [index for index, curr_id in enumerate(example) if curr_id != token_id]
             # Warning: in bidirectional contexts, the mask can be in the first or last position,
             # which can cause no mask prediction to be made for the biLSTM.
             if not bidirectional:
@@ -182,6 +188,12 @@ def get_sample_sentences(tokenizer, wordbank_file, tokenized_examples_file,
                 mask_idx = random.choice(token_indices)
                 new_example[mask_idx] = tokenizer.mask_token_id
                 sample_sents.append(new_example)
+                # For every positive sample, we also save a negative sample.
+                if len(other_indices) > 0:
+                    neg_mask_idx = random.choice(other_indices)
+                    new_example[mask_idx] = token_id    # Setting the masked token back to its original value
+                    new_example[neg_mask_idx] = tokenizer.mask_token_id # Masking another random token within the sequence
+                    negative_samples.append(new_example)
     infile.close()
     # Logging.
     for token, token_id, sample_sents in token_data:
