@@ -292,7 +292,7 @@ def run_model(model, token, examples, batch_size, tokenizer):
 def evaluate_tokens(model, token_data, tokenizer, outfile,
                     curr_step, batch_size, min_samples):
     token_count = 0
-    for token, token_id, sample_sents in token_data:
+    for token, token_id, sample_sents, negative_samples in token_data:
         print("\nEvaluation token: {}".format(token))
         token_count += 1
         print("{0} / {1} tokens".format(token_count, len(token_data)))
@@ -319,14 +319,23 @@ def evaluate_tokens(model, token_data, tokenizer, outfile,
         surprisals = -1.0*torch.log2(token_probs)
         mean_surprisal = torch.mean(surprisals).item()
         std_surprisal = torch.std(surprisals).item()
+        # getting surprisals for negative samples
+        neg_logits, neg_model_outputs = run_model(model, token, negative_samples, batch_size, tokenizer)
+        neg_probs = torch.nn.Softmax(dim=-1)(neg_logits)
+        neg_token_probs = neg_probs[:, token_id]
+        neg_token_probs += 0.000000001 # Smooth with (1e-9).
+        neg_surprisals = -1.0*torch.log2(neg_token_probs)
+        mean_neg_surprisal = torch.mean(neg_surprisals).item()
+        std_neg_surprisal = torch.std(neg_surprisals).item()
         # Logging.
         print("Median rank: {}".format(median_rank))
         print("Mean surprisal: {}".format(mean_surprisal))
         print("Stdev surprisal: {}".format(std_surprisal))
         print("Accuracy: {}".format(accuracy))
-        outfile.write("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\n".format(
-            curr_step, token, median_rank, mean_surprisal, std_surprisal,
-            accuracy, num_examples))
+        print("Mean surprisal of negative samples: {}".format(mean_neg_surprisal))
+        outfile.write("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\t{8}\n".format(
+            curr_step, token, median_rank, mean_surprisal, std_surprisal, 
+            mean_neg_surprisal, std_neg_surprisal, accuracy, num_examples))
         if args.save_model_outputs != "":
             save_model_outputs(model_outputs, curr_step, args.save_model_outputs)
     return
