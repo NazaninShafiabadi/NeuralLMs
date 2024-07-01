@@ -392,7 +392,7 @@ def main(args):
     # Prepare for evaluation.
     outfile = codecs.open(args.output_file, 'w', encoding='utf-8')
     # File header.
-    outfile.write("Steps\tToken\tMedianRank\tMeanSurprisal\tStdevSurprisal\tAccuracy\tNumExamples\n")
+    outfile.write("Steps\tToken\tMedianRank\tMeanSurprisal\tStdevSurprisal\tMeanNegSurprisal\tStdevNegSurprisal\tAccuracy\tNumExamples\n")
 
     # Get checkpoints & Run evaluation.
     steps = list(range(0, 200_000, 20_000)) + list(range(200_000, 2_100_000, 100_000))
