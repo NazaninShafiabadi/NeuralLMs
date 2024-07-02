@@ -171,12 +171,11 @@ def get_sample_sentences(tokenizer, wordbank_file, tokenized_examples_file,
             continue
         if len(example) > max_seq_len:
             example = example[:max_seq_len]
-        for token, token_id, sample_sents, negative_samples in token_data:
-            if len(sample_sents) >= max_samples:
+        for token, token_id, positive_samples, negative_samples in token_data:
+            if len(positive_samples) >= max_samples:
                 # This token already has enough sentences.
                 continue
             token_indices = [index for index, curr_id in enumerate(example) if curr_id == token_id]
-            other_indices = [index for index, curr_id in enumerate(example) if curr_id != token_id]
             # Warning: in bidirectional contexts, the mask can be in the first or last position,
             # which can cause no mask prediction to be made for the biLSTM.
             if not bidirectional:
@@ -184,20 +183,21 @@ def get_sample_sentences(tokenizer, wordbank_file, tokenized_examples_file,
                 # The sequence length (including the target token) must be at least min_seq_len.
                 token_indices = [index for index in token_indices if index >= min_seq_len-1]
             if len(token_indices) > 0:
-                new_example = example.copy()
+                positive_example = example.copy()
                 mask_idx = random.choice(token_indices)
-                new_example[mask_idx] = tokenizer.mask_token_id
-                sample_sents.append(new_example)
+                positive_example[mask_idx] = tokenizer.mask_token_id
+                positive_samples.append(positive_example)
                 # For every positive sample, we also save a negative sample.
+                other_indices = [index for index, curr_id in enumerate(example) if curr_id != token_id]
                 if len(other_indices) > 0:
+                    negative_example = example.copy()
                     neg_mask_idx = random.choice(other_indices)
-                    new_example[mask_idx] = token_id    # Setting the masked token back to its original value
-                    new_example[neg_mask_idx] = tokenizer.mask_token_id # Masking another random token within the sequence
-                    negative_samples.append(new_example)
+                    negative_example[neg_mask_idx] = tokenizer.mask_token_id # Masking another random token within the sequence
+                    negative_samples.append(negative_example)
     infile.close()
     # Logging.
-    for token, token_id, sample_sents, _ in token_data:
-        print("{0} ({1}): {2} sentences.".format(token, token_id, len(sample_sents)))
+    for token, token_id, positive_samples, _ in token_data:
+        print("{0} ({1}): {2} sentences.".format(token, token_id, len(positive_samples)))
     return token_data
 
 
