@@ -61,6 +61,7 @@ def create_parser():
     parser.add_argument('--save_samples', default="")
     # File path to save the attentions and hidden states.
     parser.add_argument('--save_model_outputs', default="")
+    parser.add_argument('--save_indiv_surprisals', default="")
     parser.add_argument('--save_all_layers', type=bool, default=False)
     # Whether to include token inflections (all, only, or none).
     parser.add_argument('--inflections', default="none")
@@ -314,12 +315,12 @@ def evaluate_tokens(model, token_data, tokenizer, outfile,
         predictions = rankings[:, 0] # The highest rank token_ids.
         accuracy = torch.mean((predictions == token_id).float()).item()
         # Get mean/stdev surprisal.
-        token_probs = probs[:, token_id]
+        token_probs = probs[:, token_id]    # shape: [num_examples]
         token_probs += 0.000000001 # Smooth with (1e-9).
-        surprisals = -1.0*torch.log2(token_probs)
+        surprisals = -1.0*torch.log2(token_probs)    # shape: [num_examples]
         mean_surprisal = torch.mean(surprisals).item()
         std_surprisal = torch.std(surprisals).item()
-        # getting surprisals for negative samples
+        # Surprisals for negative samples
         neg_logits, neg_model_outputs = run_model(model, token, negative_samples, batch_size, tokenizer)
         neg_probs = torch.nn.Softmax(dim=-1)(neg_logits)
         neg_token_probs = neg_probs[:, token_id]
@@ -336,6 +337,23 @@ def evaluate_tokens(model, token_data, tokenizer, outfile,
         outfile.write("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\t{8}\n".format(
             curr_step, token, median_rank, mean_surprisal, std_surprisal, 
             mean_neg_surprisal, std_neg_surprisal, accuracy, num_examples))
+        # Save individual positive and negative surprisals if requested
+        if args.save_indiv_surprisals != "":
+            surprisals_list = surprisals.tolist()
+            neg_surprisals_list = neg_surprisals.tolist()
+            if len(surprisals_list) != len(neg_surprisals_list):
+                max_len = max(len(surprisals_list), len(neg_surprisals_list))
+                surprisals_list.extend([None] * (max_len - len(surprisals_list)))
+                neg_surprisals_list.extend([None] * (max_len - len(neg_surprisals_list)))
+            indiv_surps_df = pd.DataFrame(
+                {'Steps': [curr_step] * len(surprisals_list),
+                 'Token': [token] * len(surprisals_list),
+                 'Surprisal': surprisals_list,
+                 'NegSurprisal': neg_surprisals_list
+                 })
+            # Append created DataFrame to the file
+            indiv_surps_df.to_csv(args.save_indiv_surprisals, mode='a', header=False, index=False, sep='\t')
+        # Save attentions and hidden states if requested
         if args.save_model_outputs != "":
             save_model_outputs(model_outputs, curr_step, args.save_model_outputs)
     return
@@ -394,6 +412,12 @@ def main(args):
     # File header.
     outfile.write("Steps\tToken\tMedianRank\tMeanSurprisal\tStdevSurprisal\tMeanNegSurprisal\tStdevNegSurprisal\tAccuracy\tNumExamples\n")
 
+    if args.save_indiv_surprisals != "":
+        # indiv_surps_outfile = codecs.open(args.save_indiv_surprisals, 'w', encoding='utf-8')
+        # indiv_surps_outfile.write("Steps\tToken\tSurprisal\tNegSurprisal")  # header
+        indiv_surps = pd.DataFrame(columns=['Steps', 'Token', 'Surprisal', 'NegSurprisal'])
+        indiv_surps.to_csv(args.save_indiv_surprisals, index=False, sep='\t')
+    
     # Get checkpoints & Run evaluation.
     steps = list(range(0, 200_000, 20_000)) + list(range(200_000, 2_100_000, 100_000))
     for step in steps:
