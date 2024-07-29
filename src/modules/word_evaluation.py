@@ -339,6 +339,7 @@ def evaluate_tokens(model, token_data, tokenizer, outfile,
             mean_neg_surprisal, std_neg_surprisal, accuracy, num_examples))
         # Save individual positive and negative surprisals if requested
         if args.save_indiv_surprisals != "":
+            print(f'Saving individual surprisals to "{args.save_indiv_surprisals}"')  # Debug print
             surprisals_list = surprisals.tolist()
             neg_surprisals_list = neg_surprisals.tolist()
             if len(surprisals_list) != len(neg_surprisals_list):
@@ -349,7 +350,8 @@ def evaluate_tokens(model, token_data, tokenizer, outfile,
                 {'Steps': [curr_step] * len(surprisals_list),
                  'Token': [token] * len(surprisals_list),
                  'Surprisal': surprisals_list,
-                 'NegSurprisal': neg_surprisals_list
+                 'NegSurprisal': neg_surprisals_list,
+                 'Example_num': range(len(surprisals_list))
                  })
             # Append created DataFrame to the file
             indiv_surps_df.to_csv(args.save_indiv_surprisals, mode='a', header=False, index=False, sep='\t')
@@ -413,9 +415,7 @@ def main(args):
     outfile.write("Steps\tToken\tMedianRank\tMeanSurprisal\tStdevSurprisal\tMeanNegSurprisal\tStdevNegSurprisal\tAccuracy\tNumExamples\n")
 
     if args.save_indiv_surprisals != "":
-        # indiv_surps_outfile = codecs.open(args.save_indiv_surprisals, 'w', encoding='utf-8')
-        # indiv_surps_outfile.write("Steps\tToken\tSurprisal\tNegSurprisal")  # header
-        indiv_surps = pd.DataFrame(columns=['Steps', 'Token', 'Surprisal', 'NegSurprisal'])
+        indiv_surps = pd.DataFrame(columns=['Steps', 'Token', 'Surprisal', 'NegSurprisal', 'Example_num'])
         indiv_surps.to_csv(args.save_indiv_surprisals, index=False, sep='\t')
     
     # Get checkpoints & Run evaluation.
