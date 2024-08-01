@@ -6,6 +6,7 @@ from typing import List, Dict
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from scipy.optimize import curve_fit
 from scipy.stats import pearsonr
 import seaborn as sns
 from sklearn.linear_model import LinearRegression
@@ -13,7 +14,7 @@ from sklearn.metrics import mean_squared_error, r2_score
 
 
 
-def fit_linear_model(X:np.ndarray, y:np.ndarray, first_step=True) -> Dict[str, float]:
+def fit_linear(X:np.ndarray, y:np.ndarray, first_step=True) -> Dict[str, float]:
     if not first_step:
         X, y = X[1:], y[1:]
     model = LinearRegression().fit(X, y)
@@ -22,10 +23,53 @@ def fit_linear_model(X:np.ndarray, y:np.ndarray, first_step=True) -> Dict[str, f
     beta = model.intercept_
     r2 = r2_score(y, y_pred)
     mse = mean_squared_error(y, y_pred)
-    return X.flatten(), y_pred, {'alpha': alpha, 'beta': beta, 'R2': r2, 'MSE': mse}
+    return X.flatten(), y_pred, {'model': 'Linear Regression', 'alpha': alpha, 'beta': beta, 'R2': r2, 'MSE': mse}
 
 
-def plot_surprisals(words:List[str], surprisals_df, neg_samples=False, first_step=True, fit_line=False, return_outputs=False):
+def exponential_decay(x, a, b, c):
+    return a * np.exp(-b * x) + c
+
+def polynomial_model(x, a, b, c, d):
+    return a * x**3 + b * x**2 + c * x + d
+
+def linear_model(x, m, c):
+    return m * x + c
+
+def fit_model(model, x, y, initial_guess, bounds=(-np.inf, np.inf)):
+    popt, _ = curve_fit(model, x, y, p0=initial_guess, bounds=bounds)
+    y_fit = model(x, *popt)
+    return popt, y_fit
+
+def select_best_model(x, y):
+    models = [
+        (exponential_decay, [y.max(), 1e-6, y.min()], 'Exponential Decay'),
+        (polynomial_model, [0, 0, 0, y.mean()], 'Polynomial Model'),
+        (linear_model, [0, y.mean()], 'Linear Model')
+    ]
+    
+    best_model = None
+    best_fit = None
+    best_score = np.inf
+    best_name = ""
+    
+    for model, initial_guess, name in models:
+        try:
+            popt, y_fit = fit_model(model, x, y, initial_guess)
+            mse = mean_squared_error(y, y_fit)
+            if mse < best_score:
+                r2 = r2_score(y, y_fit)
+                best_score = mse
+                best_model = model
+                best_fit = y_fit
+                best_name = name
+        except RuntimeError as e:
+            # print(f"Error fitting {name}: {e}")
+            continue
+    
+    return best_model, best_fit, best_name, best_score, r2
+
+
+def plot_surprisals(words:List[str], surprisals_df, neg_samples=False, first_step=True, fit_line=False, fit_curve=False, return_outputs=False):
     """ 
     If first_step is set to False, neither the correlations nor the linear model will consider 
     the first step, but the first step will still be shown on the plot.
@@ -50,30 +94,50 @@ def plot_surprisals(words:List[str], surprisals_df, neg_samples=False, first_ste
         ax = axs[i//cols, i%cols]
 
         metrics = {}
-
-        # Fit linear model for positive samples
-        X = word_data['Steps'].values.reshape(-1, 1)
-        y_pos = word_data['MeanSurprisal'].values
-        X_flat, y_pred_pos, metrics['positive'] = fit_linear_model(X, y_pos, first_step=first_step)
         
-        # Plot positive surprisals & fitted line
-        ax.plot(word_data['Steps'], word_data['MeanSurprisal'], marker='o', color='darkseagreen', label='Positive Samples')
+        x = word_data['Steps'].values
+        y_pos = word_data['MeanSurprisal'].values
+        
+        # Plot positive surprisals
+        ax.plot(x, y_pos, marker='o', color='darkseagreen', label='Positive Samples')
+
         if fit_line:
-            ax.plot(X_flat, y_pred_pos, linestyle='--', color='#043927', label='Positive Fit')
+            # Fit linear model for positive samples
+            X_flat, y_pred_pos, metrics['positive'] = fit_linear(x.reshape(-1, 1), y_pos, first_step=first_step)
+            ax.plot(X_flat, y_pred_pos, linestyle='--', color='#043927', label='Fitted Line (+)')
+
+        if fit_curve:
+            # Fit and plot the best curve for positive samples
+            best_model, best_fit, best_name, best_score, r2 = select_best_model(x, y_pos)
+            if best_model is not None:
+                ax.plot(x, best_fit, label=f'Positive Best Fit', color='#043927')
+                metrics['positive'] = {'model': best_name, 'R2': r2, 'MSE': best_score}
+            else:
+                print(f"Could not fit any model for the positive samples of word '{word}'")
 
         if neg_samples:
             y_neg = word_data['MeanNegSurprisal'].values
-            X_flat, y_pred_neg, metrics['negative'] = fit_linear_model(X, y_neg, first_step=first_step)
             
-            # Plot negative surprisals & fitted line
-            ax.plot(word_data['Steps'], word_data['MeanNegSurprisal'], marker='o', color='indianred', label='Negative Samples')
+            # Plot negative surprisals
+            ax.plot(word_data['Steps'], word_data['MeanNegSurprisal'], marker='o', color='indianred', label='Negative Samples')            
+            
             if fit_line:
-                ax.plot(X_flat, y_pred_neg, linestyle='--', color='#8D021F', label='Negative Fit')
+                # Fit linear model for negative samples
+                X_flat, y_pred_neg, metrics['negative'] = fit_linear(x.reshape(-1, 1), y_neg, first_step=first_step)
+                ax.plot(X_flat, y_pred_neg, linestyle='--', color='#8D021F', label='Fitted Line (-)')
+            
+            if fit_curve:
+                # Fit and plot the best curve for positive samples
+                best_model, best_fit, best_name, best_score, r2 = select_best_model(x, y_neg)
+                if best_model is not None:
+                    ax.plot(x, best_fit, label=f'Negative Best Fit', color='#8D021F')
+                    metrics['negative'] = {'model': best_name, 'R2': r2, 'MSE': best_score}
+                else:
+                    print(f"Could not fit any model for the negative samples of word '{word}'")
 
             # Calculate correlation
             if not first_step:
-                word_data = word_data[word_data['Steps'] != 0]
-                
+                word_data = word_data[word_data['Steps'] != 0]                
             corr, _ = pearsonr(word_data['MeanSurprisal'], word_data['MeanNegSurprisal'])
             correlations[word] = corr
             ax.set_title(f'"{word}"', pad=18)
@@ -102,10 +166,46 @@ def plot_surprisals(words:List[str], surprisals_df, neg_samples=False, first_ste
     plt.show()
 
     if return_outputs:
-        return correlations, all_metrics
-    else: 
-        return
+        return correlations, all_metrics    
 
+
+def corr_plot(words:List[str], df, first_step=True, fit_line=False, fit_curve=False, return_metrics=False) -> None:
+    """ The df needs to have individual surprisals """
+    metrics = {}
+
+    for w in words:
+        w_data = df[df.Token == w].reset_index(drop=True)
+        w_count = w_data.groupby('Steps')['Token'].count().values[0]
+        x = w_data['Steps'].values
+        y = w_data['Surprisal'].values
+
+        # Plot for the original data
+        g = sns.lineplot(data=w_data, x='Steps', y='Surprisal', errorbar=('ci', 100))
+
+        if fit_line:
+            # Fit a linear model that shows the general trend
+            X_flat, y_pred, metrics = fit_linear(x.reshape(-1, 1), y, first_step=first_step)
+            g.plot(X_flat, y_pred, linestyle='--', color='dimgray', label='Fitted Line')
+            g.text(0.5, 1.02, f'α: {metrics['alpha']:.2e}', fontsize=10, ha='center', transform=g.transAxes)
+
+        if fit_curve:
+            # Fit and plot the best curve
+            best_model, best_fit, best_name, mse, r2 = select_best_model(x, y)
+            if best_model is not None:
+                # Plot the best fitted curve
+                plt.plot(x, best_fit, label=f'Best Fit ({best_name})\nMSE: {mse:.2f}, R²: {r2:.2f}', color='dimgray')
+            else:
+                print(f"Could not fit any model for word '{w}'")
+        
+        metrics[w] = {'MSE': mse, 'R2': r2}
+        
+        g.figure.suptitle(f"{w} ({w_count} samples)")
+        plt.legend()        
+        plt.show()
+
+    if return_metrics:
+        return metrics
+    
 
 def plot_all_in_one(words:List[str], surprisals_df):
     plt.style.use('ggplot')
@@ -181,18 +281,3 @@ def plot_avg_pos_neg(positives, negatives):
     plt.ylabel('Mean Surprisal')
     plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
     plt.show()
-
-
-def corr_plot(words:List[str], df, first_step=True) -> None:
-    """ The df needs to have individual surprisals """
-    for w in words:
-        w_data = df[df.Token == w].reset_index(drop=True)
-        w_count = w_data.groupby('Steps')['Token'].count().values[0]
-        X = w_data['Steps'].values.reshape(-1, 1)
-        y = w_data['Surprisal'].values
-        X_flat, y_pred, metrics = fit_linear_model(X, y, first_step=first_step)
-        g = sns.lineplot(data=w_data, x='Steps', y='Surprisal', errorbar=('ci', 100))
-        g.plot(X_flat, y_pred, linestyle='--', color='dimgray', label='Positive Fit')
-        g.figure.suptitle(f"{w} ({w_count} samples)")
-        g.text(0.5, 1.02, f'α: {metrics['alpha']:.2e}', fontsize=10, ha='center', transform=g.transAxes)
-        plt.show()
