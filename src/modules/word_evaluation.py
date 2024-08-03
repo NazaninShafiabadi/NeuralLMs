@@ -349,9 +349,9 @@ def evaluate_tokens(model, token_data, tokenizer, outfile,
             indiv_surps_df = pd.DataFrame(
                 {'Steps': [curr_step] * len(surprisals_list),
                  'Token': [token] * len(surprisals_list),
+                 'Context': sample_sents,
                  'Surprisal': surprisals_list,
-                 'NegSurprisal': neg_surprisals_list,
-                 'Example_num': range(len(surprisals_list))
+                 'NegSurprisal': neg_surprisals_list
                  })
             # Append created DataFrame to the file
             indiv_surps_df.to_csv(args.save_indiv_surprisals, mode='a', header=False, index=False, sep='\t')
@@ -415,7 +415,7 @@ def main(args):
     outfile.write("Steps\tToken\tMedianRank\tMeanSurprisal\tStdevSurprisal\tMeanNegSurprisal\tStdevNegSurprisal\tAccuracy\tNumExamples\n")
 
     if args.save_indiv_surprisals != "":
-        indiv_surps = pd.DataFrame(columns=['Steps', 'Token', 'Surprisal', 'NegSurprisal', 'Example_num'])
+        indiv_surps = pd.DataFrame(columns=['Steps', 'Token', 'Context', 'Surprisal', 'NegSurprisal'])
         indiv_surps.to_csv(args.save_indiv_surprisals, index=False, sep='\t')
     
     # Get checkpoints & Run evaluation.
