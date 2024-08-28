@@ -166,7 +166,7 @@ def plot_surprisals(words:List[str], surprisals_df, show_error_interval=False, n
         
         ax.set_xlabel('Steps')
         ax.set_ylabel('Mean surprisal')
-        ax.invert_yaxis()
+        # ax.invert_yaxis()
 
         all_metrics[word] = metrics
     
@@ -254,7 +254,7 @@ def plot_all_in_one(words:List[str], surprisals_df):
     # plt.title('All Words')
     plt.xlabel('Steps')
     plt.ylabel('Mean surprisal')
-    plt.gca().invert_yaxis()
+    # plt.gca().invert_yaxis()
     plt.tight_layout()
     plt.show()
 
@@ -271,13 +271,14 @@ def get_avg_df(dfs: List[pd.DataFrame], column: str):
 
 
 def plot_freq_infreq_full(freq, infreq, full, column: str):
+    plt.style.use('ggplot')
     plt.figure()
 
     plt.plot(full.Steps, full[column], linestyle='--', alpha=0.6, label='Full Corpus')
     plt.plot(freq.Steps, freq[column], marker='o', label='Frequent Words')
     plt.plot(infreq.Steps, infreq[column], marker='o', label='Infrequent Words')
 
-    plt.ylim(max(freq[column].max(), infreq[column].max()), 0)
+    plt.ylim(0, max(freq[column].max(), infreq[column].max()))
     plt.xlabel('Steps')
     plt.ylabel(column)
     plt.legend()
@@ -285,18 +286,21 @@ def plot_freq_infreq_full(freq, infreq, full, column: str):
 
 
 def plot_avg_pos_neg(positives, negatives):
+    plt.style.use('ggplot')
     plt.figure()
-    pos_labels = ['Full Corpus', 'Frequent Words', 'Infrequent Words']
-    neg_labels = ['Full Corpus (negatives)', 'Frequent Words (negatives)', 'Infrequent Words (negatives)']
+
+    pos_labels = ['Full Corpus (positive context)', 'Frequent Words (positive context)', 'Infrequent Words (positive context)']
+    neg_labels = ['Full Corpus (negative context)', 'Frequent Words (negative context)', 'Infrequent Words (negative context)']
     colors = ['purple', 'green', 'red']
 
     for i, df in enumerate(positives):
-        plt.plot(df.Steps, df['MeanSurprisal'], marker='o', color=colors[i], label=pos_labels[i])
+        plt.plot(df.Steps, df['MeanSurprisal'], marker='o', color=colors[i] if len(positives) > 1 else 'green', label=pos_labels[i])
     
     for i, df in enumerate(negatives):
-        plt.plot(df.Steps, df['MeanNegSurprisal'], marker='o', color=colors[i], alpha= 0.3, label=neg_labels[i])
+        plt.plot(df.Steps, df['MeanNegSurprisal'], marker='o', color=colors[i] if len(negatives) > 1 else 'red', alpha= 0.3, label=neg_labels[i])
 
-    plt.gca().invert_yaxis()
+    # plt.gca().invert_yaxis()
+    # plt.xscale('log')
     plt.xlabel('Steps')
     plt.ylabel('Mean Surprisal')
     plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
