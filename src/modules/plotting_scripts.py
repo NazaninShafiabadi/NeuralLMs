@@ -69,7 +69,7 @@ def select_best_model(x, y):
     return best_model, best_fit, best_name, best_score, r2
 
 
-def plot_surprisals(words:List[str], surprisals_df, show_error_interval=False, neg_samples=False, first_step=True, fit_line=False, fit_curve=False, return_outputs=False):
+def plot_surprisals(words:List[str], surprisals_df, show_error_interval=False, neg_samples=False, first_step=True, fit_line=False, fit_curve=False, convergence=False, return_outputs=False):
     """ 
     If first_step is set to False, neither the correlations nor the linear model will consider 
     the first step, but the first step will still be shown on the plot.
@@ -110,10 +110,19 @@ def plot_surprisals(words:List[str], surprisals_df, show_error_interval=False, n
         else:
             ax.plot(x, y_pos, marker='o', color='darkseagreen', label='Positive Samples')
 
+        if convergence:
+            lowest_surprisal = min(y_pos)
+            lowest_step = x[np.argmin(y_pos)]
+            ax.axhline(lowest_surprisal, color='#043927', linestyle=':')
+            ax.axvline(lowest_step, color='#043927', linestyle=':')
+
         if fit_line:
             # Fit linear model for positive samples
             X_flat, y_pred_pos, metrics['positive'] = fit_linear(x.reshape(-1, 1), y_pos, first_step=first_step)
             ax.plot(X_flat, y_pred_pos, linestyle='--', color='#043927', label='Fitted Line (+)')
+            alpha = metrics['positive']['alpha']
+            ax.text(x[-1], y_pred_pos[-1] + 1 if alpha > 0 else y_pred_pos[-1] + 3, 
+                    f"α⁺ = {alpha:.2e}", color='#043927', fontsize=8, ha='right')
 
         if fit_curve:
             # Fit and plot the best curve for positive samples
@@ -139,10 +148,19 @@ def plot_surprisals(words:List[str], surprisals_df, show_error_interval=False, n
             else:
                 ax.plot(word_data['Steps'], word_data['MeanNegSurprisal'], marker='o', color='indianred', label='Negative Samples')
             
+            if convergence:
+                highest_antisurprisal = max(y_neg)
+                highest_step = x[np.argmax(y_neg)]
+                ax.axhline(highest_antisurprisal, color='#8D021F', linestyle=':')
+                ax.axvline(highest_step, color='#8D021F', linestyle=':')
+            
             if fit_line:
                 # Fit linear model for negative samples
                 X_flat, y_pred_neg, metrics['negative'] = fit_linear(x.reshape(-1, 1), y_neg, first_step=first_step)
                 ax.plot(X_flat, y_pred_neg, linestyle='--', color='#8D021F', label='Fitted Line (-)')
+                alpha = metrics['negative']['alpha']
+                ax.text(x[-1], y_pred_neg[-1] - 2 if alpha < 0 else y_pred_neg[-1] - 4, 
+                        f"α⁻ = {alpha:.2e}", color='#8D021F', fontsize=8, ha='right')
             
             if fit_curve:
                 # Fit and plot the best curve for positive samples
@@ -166,7 +184,6 @@ def plot_surprisals(words:List[str], surprisals_df, show_error_interval=False, n
         
         ax.set_xlabel('Steps')
         ax.set_ylabel('Mean surprisal')
-        # ax.invert_yaxis()
 
         all_metrics[word] = metrics
     
