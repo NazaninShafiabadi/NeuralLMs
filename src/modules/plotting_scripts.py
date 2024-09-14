@@ -32,8 +32,8 @@ def exponential_decay(x, a, b, c):
 def polynomial_model(x, a, b, c, d):
     return a * x**3 + b * x**2 + c * x + d
 
-def linear_model(x, m, c):
-    return m * x + c
+def linear_model(x, a, b):
+    return a * x + b
 
 def fit_model(model, x, y, initial_guess, bounds=(-np.inf, np.inf)):
     popt, _ = curve_fit(model, x, y, p0=initial_guess, bounds=bounds)
